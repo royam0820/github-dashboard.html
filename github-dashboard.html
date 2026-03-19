@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Dashboard - openclaw/openclaw</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 35px rgba(0,0,0,0.15);
+        }
+
+        .card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 8px;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+        }
+
+        .stat-item {
+            flex: 1;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .languages {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .language-tag {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 20px;
+            padding: 5px 12px;
+            font-size: 0.85rem;
+            color: #495057;
+        }
+
+        .commit-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .commit-item {
+            border-bottom: 1px solid #eee;
+            padding: 12px 0;
+        }
+
+        .commit-item:last-child {
+            border-bottom: none;
+        }
+
+        .commit-message {
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .commit-meta {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .commit-author {
+            font-weight: 500;
+            color: #667eea;
+        }
+
+        .commit-hash {
+            font-family: 'Courier New', monospace;
+            background: #f8f9fa;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+        }
+
+        .loading {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+        }
+
+        .error {
+            color: #dc3545;
+            text-align: center;
+            padding: 20px;
+            background: #f8d7da;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .stats {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 GitHub Dashboard</h1>
+            <p>openclaw/openclaw - Repository Overview</p>
+        </div>
+
+        <div class="dashboard">
+            <!-- Repository Stats Card -->
+            <div class="card">
+                <h3>📈 Repository Stats</h3>
+                <div class="loading" id="stats-loading">Chargement des statistiques...</div>
+                <div class="stats" id="stats-content" style="display: none;">
+                    <div class="stat-item">
+                        <span class="stat-number" id="stars-count">-</span>
+                        <span class="stat-label">Stars</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="forks-count">-</span>
+                        <span class="stat-label">Forks</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="issues-count">-</span>
+                        <span class="stat-label">Issues</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Languages Card -->
+            <div class="card">
+                <h3>💻 Programming Languages</h3>
+                <div class="loading" id="languages-loading">Chargement des langages...</div>
+                <div class="languages" id="languages-content" style="display: none;"></div>
+            </div>
+
+            <!-- Recent Commits Card -->
+            <div class="card">
+                <h3>🔄 Recent Commits</h3>
+                <div class="loading" id="commits-loading">Chargement des commits...</div>
+                <div class="commit-list" id="commits-content" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // GitHub API base URL for the openclaw/openclaw repository
+        const API_BASE = 'https://api.github.com/repos/openclaw/openclaw';
+        
+        // Cache for API responses to limit calls
+        const apiCache = new Map();
+
+        // Fetch data from GitHub API with caching
+        async function fetchGitHubApi(endpoint) {
+            const cacheKey = endpoint;
+            
+            if (apiCache.has(cacheKey)) {
+                return apiCache.get(cacheKey);
+            }
+
+            try {
+                const response = await fetch(endpoint);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                apiCache.set(cacheKey, data);
+                return data;
+            } catch (error) {
+                console.error('Error fetching GitHub API:', error);
+                throw error;
+            }
+        }
+
+        // Format date to readable format
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('fr-FR', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Display repository stats
+        async function displayStats() {
+            try {
+                const repoData = await fetchGitHubApi(API_BASE);
+                
+                document.getElementById('stats-loading').style.display = 'none';
+                document.getElementById('stats-content').style.display = 'flex';
+                
+                document.getElementById('stars-count').textContent = repoData.stargazers_count.toLocaleString();
+                document.getElementById('forks-count').textContent = repoData.forks_count.toLocaleString();
+                document.getElementById('issues-count').textContent = repoData.open_issues_count.toLocaleString();
+                
+            } catch (error) {
+                document.getElementById('stats-loading').innerHTML = '<div class="error">Erreur lors du chargement des statistiques</div>';
+            }
+        }
+
+        // Display programming languages
+        async function displayLanguages() {
+            try {
+                const languagesData = await fetchGitHubApi(`${API_BASE}/languages`);
+                
+                document.getElementById('languages-loading').style.display = 'none';
+                document.getElementById('languages-content').style.display = 'flex';
+                
+                const languagesContainer = document.getElementById('languages-content');
+                languagesContainer.innerHTML = '';
+                
+                // Sort by percentage and display
+                const totalBytes = Object.values(languagesData).reduce((sum, bytes) => sum + bytes, 0);
+                
+                Object.entries(languagesData)
+                    .sort(([,a], [,b]) => b - a)
+                    .forEach(([language, bytes]) => {
+                        const percentage = ((bytes / totalBytes) * 100).toFixed(1);
+                        const languageTag = document.createElement('div');
+                        languageTag.className = 'language-tag';
+                        languageTag.textContent = `${language} (${percentage}%)`;
+                        languagesContainer.appendChild(languageTag);
+                    });
+                
+            } catch (error) {
+                document.getElementById('languages-loading').innerHTML = '<div class="error">Erreur lors du chargement des langages</div>';
+            }
+        }
+
+        // Display recent commits
+        async function displayCommits() {
+            try {
+                const commitsData = await fetchGitHubApi(`${API_BASE}/commits?per_page=5`);
+                
+                document.getElementById('commits-loading').style.display = 'none';
+                document.getElementById('commits-content').style.display = 'block';
+                
+                const commitsContainer = document.getElementById('commits-content');
+                commitsContainer.innerHTML = '';
+                
+                commitsData.forEach(commit => {
+                    const commitItem = document.createElement('div');
+                    commitItem.className = 'commit-item';
+                    
+                    const shortMessage = commit.commit.message.split('\n')[0];
+                    const truncatedMessage = shortMessage.length > 80 ? 
+                        shortMessage.substring(0, 80) + '...' : shortMessage;
+                    
+                    commitItem.innerHTML = `
+                        <div class="commit-message">${truncatedMessage}</div>
+                        <div class="commit-meta">
+                            <span class="commit-author">by ${commit.author?.login || 'Unknown'}</span>
+                            <span> • </span>
+                            <span>${formatDate(commit.commit.author.date)}</span>
+                            <span> • </span>
+                            <span class="commit-hash">${commit.sha.substring(0, 7)}</span>
+                        </div>
+                    `;
+                    
+                    commitsContainer.appendChild(commitItem);
+                });
+                
+            } catch (error) {
+                document.getElementById('commits-loading').innerHTML = '<div class="error">Erreur lors du chargement des commits</div>';
+            }
+        }
+
+        // Initialize dashboard
+        async function initDashboard() {
+            // Load all data concurrently
+            await Promise.all([
+                displayStats(),
+                displayLanguages(),
+                displayCommits()
+            ]);
+        }
+
+        // Start dashboard when page loads
+        document.addEventListener('DOMContentLoaded', initDashboard);
+
+        // Refresh data every 5 minutes
+        setInterval(initDashboard, 5 * 60 * 1000);
+    </script>
+</body>
+</html>
